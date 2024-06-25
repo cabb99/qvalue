@@ -7,3 +7,7 @@ Qvalue
 from importlib.metadata import version
 
 __version__ = version("qvalue")
+#__version__ = "0.0.1"
+from qvalue.qvalue import Qvalue
+
+__all__ = ['Qvalue']
