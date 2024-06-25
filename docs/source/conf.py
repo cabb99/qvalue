@@ -185,7 +185,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, "qvalue", "Qvalue Documentation",
-     author, "qvalue", ""Calculates the fraction of native contacts conserved during the simulation"",
+     author, "qvalue", "Calculates the fraction of native contacts conserved during the simulation",
      "Miscellaneous"),
 ]
 

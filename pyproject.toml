@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qvalue"
-description = ""Calculates the fraction of native contacts conserved during the simulation""
+description = "Calculates the fraction of native contacts conserved during the simulation"
 license = {file = "LICENSE" }
 authors = [
     {name = "Carlos Bueno", email = "carlos.bueno@rice.edu"},
