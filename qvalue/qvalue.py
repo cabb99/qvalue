@@ -211,7 +211,7 @@ class qValue(AnalysisBase):
         else:
             self._get_box = lambda ts: None
 
-        r0 = distance_array(self.reference_selection_a.positions, self.reference_selection_b.positions, box=self._get_box(self.refgroup.universe))
+        r0 = distance_array(self.reference_selection_a.positions, self.reference_selection_b.positions, box=self._get_box(self.reference_universe.universe))
         seq_sep = np.abs(self.reference_selection_a.resids[:, np.newaxis] - self.reference_selection_b.resids[np.newaxis, :], dtype=float)
         seq_sep [self.reference_selection_a.chainIDs[:, np.newaxis] != self.reference_selection_b.chainIDs[np.newaxis, :]] = np.inf
         
@@ -220,17 +220,25 @@ class qValue(AnalysisBase):
         
         self.r0 = r0[self.i, self.j]
         self.seq_sep = seq_sep[self.i, self.j]
+        # print(len(self.r0))
+        # print(len(self.seq_sep))
         
-        def _prepare(self):
-            self.timeseries = np.empty((self.n_frames, len(self.r0)))
+    def _prepare(self):
+        self.timeseries = np.empty((self.n_frames, len(self.r0)))
+        # print(self.timeseries.shape)
 
-        def _single_frame(self):
-            self.timeseries[self._frame_index][0] = self._ts.frame
-            
-            # compute distance array for a frame
-            r = distance_array(self.selection_a.positions, self.selection_b.positions, box=self._get_box(self._ts))
-            q=self.method_function(r[self.i, self.j], self.r0, self.seq_sep)
-            self.timeseries[self._frame_index] = q
+    def _single_frame(self):
+        self.timeseries[self._frame_index][0] = self._ts.frame
+        # print(self.timeseries)
+        
+        # compute distance array for a frame
+        r = distance_array(self.selection_a.positions, self.selection_b.positions, box=self._get_box(self._ts))
+        q=self.method_function(r[self.i, self.j], self.r0, self.seq_sep)
+        self.timeseries[self._frame_index] = q
+
+    def _conclude(self):
+        self.qvalues = np.mean(self.timeseries, axis=1)
+        return super()._conclude()
 
 def qvalue_wolynes(rij, rijn, seq_sep, sigma_exp=0.15):
     sigmaij = np.power(seq_sep,sigma_exp)
