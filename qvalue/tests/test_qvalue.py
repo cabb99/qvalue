@@ -9,7 +9,6 @@ import sys
 import MDAnalysis as mda
 from qvalue.data.files import DCD, PDB, REF, INFO
 import numpy as np
-import csv
 
 class TestQValue(object):
     @pytest.fixture()
@@ -23,19 +22,31 @@ class TestQValue(object):
     @pytest.fixture()
     def q_value_array(self):
         q_value_array = []
-        with open(INFO, mode='r') as infile:
-            reader = csv.reader(infile)
-            for row in reader:
-                q_value_array.append(row)
-        return q_value_array
+        with open(INFO, 'r') as infile:
+            lines = infile.readlines()
+        
+        # Skip the first line (header)
+        data_lines = lines[1:]
+        
+        for line in data_lines:
+            # Split on *any* amount of whitespace
+            parts = line.split()
+            
+            # Make sure there's at least two columns
+            if len(parts) >= 2:
+                q_value_array.append(float(parts[1]))
+        
+        return np.array(q_value_array,dtype=float)
 
 
-    def test_qvalue(self, universe, reference):
+
+    def test_qvalue(self, universe, reference,q_value_array):
         qvalues = qvalue.qValue(universe, reference)
         qvalues.run()
         print(qvalues.timeseries.shape)
         print(qvalues.qvalues.shape)
-        test_qvalues = np.ones(20)
+        print(q_value_array.shape)
+        q_value_array
 
 @pytest.fixture
 def dcdfile():
