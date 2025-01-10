@@ -29,23 +29,17 @@ class TestQValue(object):
         data_lines = lines[1:]
         
         for line in data_lines:
-            # Split on *any* amount of whitespace
             parts = line.split()
-            
-            # Make sure there's at least two columns
             if len(parts) >= 2:
                 q_value_array.append(float(parts[1]))
         
         return np.array(q_value_array,dtype=float)
 
-
-
     def test_qvalue(self, universe, reference,q_value_array):
         qvalues = qvalue.qValue(universe, reference)
         qvalues.run()
-        print(qvalues.timeseries.shape)
-        print(qvalues.qvalues.shape)
-        print(q_value_array.shape)
+        print(qvalues.qvalues)
+        print(q_value_array)
         q_value_array
 
 @pytest.fixture

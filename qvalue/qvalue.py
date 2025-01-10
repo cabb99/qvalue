@@ -224,22 +224,54 @@ class qValue(AnalysisBase):
         # print(len(self.seq_sep))
         
     def _prepare(self):
-        self.timeseries = np.empty((self.n_frames, len(self.r0)))
-        # print(self.timeseries.shape)
+        self.q_per_contact = np.empty((self.n_frames, len(self.r0)))
 
     def _single_frame(self):
-        self.timeseries[self._frame_index][0] = self._ts.frame
-        # print(self.timeseries)
+        # distances in the current frame
+        r_matrix = distance_array(
+            self.selection_a.positions,
+            self.selection_b.positions,
+            box=self._get_box(self._ts)
+        )
+        # Pull out only the pairs we decided were “native” in the reference
+        rij_frame = r_matrix[self.i, self.j]
         
-        # compute distance array for a frame
-        r = distance_array(self.selection_a.positions, self.selection_b.positions, box=self._get_box(self._ts))
-        q=self.method_function(r[self.i, self.j], self.r0, self.seq_sep)
-        self.timeseries[self._frame_index] = q
+        # Evaluate the pairwise exponent for each contact
+        q_per_contact = self.method_function(
+            rij_frame,    # current distances (Å)
+            self.r0,      # reference distances (Å)
+            self.seq_sep, # sequence separations
+            **self.method_kwargs
+        )
+        
+        # The final Q for this frame is the average over all “native” pairs
+        self.q_per_contact[self._frame_index] = q_per_contact
 
     def _conclude(self):
-        self.qvalues = np.mean(self.timeseries, axis=1)
-        return super()._conclude()
+        self.qvalues = np.mean(self.q_per_contact, axis=1)
 
-def qvalue_wolynes(rij, rijn, seq_sep, sigma_exp=0.15):
-    sigmaij = np.power(seq_sep,sigma_exp)
-    return np.exp(-(rij - rijn)**2 / (2.0 * sigmaij**2))
+def qvalue_wolynes(rij, rijn, seq_sep, a = 1.0, sigma_exp=0.15):
+    """
+    Wolynes Q value contribution for each pair of atoms.
+    
+    Parameters
+    ----------
+    rij : array
+        Distances between the i-j pairs in the frame (Å).
+    rijn : array
+        Distances between the i-j pairs in the reference structure (Å).
+    seq_sep : array
+        Sequence separations between residues i and j.
+    a : float
+        Base “sigma” in Å for one residue separation, e.g. a=1.0 means 1 Å
+        for a 1-residue separation (equivalent to 0.1 nm if you were in nm).
+    sigma_exp : float
+        Exponent for the sequence separation: sigma_ij = a * (|i-j|^sigma_exp).
+    
+    Returns
+    -------
+    q_per_pair : array
+        An array of shape (n_contacts,) giving exp(-((rij-rijn)^2)/(2*sigma^2)).
+    """
+    sigma_ij = a*np.power(seq_sep, sigma_exp)
+    return np.exp(-(rij - rijn)**2 / (2.0 * sigma_ij**2))
