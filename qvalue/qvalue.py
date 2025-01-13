@@ -123,12 +123,13 @@ class qValue(AnalysisBase):
     def __init__(self, 
                  universe, 
                  reference_universe=None, 
-                 primary_selection='name CA', 
+                 primary_selection='name CA',#'name CB or (resname GLY IGL and name CA)', 
                  secondary_selection=None, 
                  q_method="Wolynes", 
-                 use_pbc=True, 
-                 contact_cutoff=9.5,
+                 use_pbc=False, 
+                 contact_cutoff=np.inf,
                  min_seq_sep=3,
+                 max_seq_sep=np.inf,
                  method_kwargs=None, 
                  **basekwargs):
         """
@@ -216,7 +217,7 @@ class qValue(AnalysisBase):
         seq_sep [self.reference_selection_a.chainIDs[:, np.newaxis] != self.reference_selection_b.chainIDs[np.newaxis, :]] = np.inf
         
         #Select the indices
-        self.i,self.j = np.where((r0<contact_cutoff) & (seq_sep >= min_seq_sep) & ~np.isnan(seq_sep))
+        self.i,self.j = np.where((r0<contact_cutoff) & (seq_sep >= min_seq_sep) & (seq_sep <= max_seq_sep) & ~np.isnan(seq_sep))
         
         self.r0 = r0[self.i, self.j]
         self.seq_sep = seq_sep[self.i, self.j]
