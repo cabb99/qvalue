@@ -329,13 +329,15 @@ class qValue(AnalysisBase):
                         selection = f"segid {chain_a}"
                         complementary_selection = f"chaisegidn {chain_b}"
                         self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
+            return
         elif method == 'Intrachain':
             chainIDs = np.unique(self.reference_universe.atoms.segids)
             for chain in chainIDs:
                 selection = f"segid {chain}"
                 self.add_method('Wolynes', method_name=f'Intrachain_{chain}', selection=selection, complementary_selection=selection, atoms='name CA', **kwargs)
+            return
         elif callable(method):
-            self.method_functions.append({'name':'Custom', function:method, 'selection':selection, 'atoms':atoms, 'kwargs':kwargs})
+            pass
         else:
             raise ValueError(f"Method '{method}' is not recognized.")
         
