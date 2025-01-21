@@ -194,8 +194,8 @@ class qValue(AnalysisBase):
         """
         if len(selection_a) != len(selection_b):
             # If the selections are not the same length go through the selections and find the residues that are not in the other selection
-            resids_a = selection_a.resids
-            resids_b = selection_b.resids
+            resids_a = selection_a.atoms.resids
+            resids_b = selection_b.atoms.resids
             if len(resids_a) > len(resids_b):
                 missing_residues = [resid for resid in resids_a if resid not in resids_b]
             else:
@@ -233,6 +233,23 @@ class qValue(AnalysisBase):
                     raise ValueError(f"Unable to generate a unique name for '{method_name}'.")
             return f"{method_name}_{i}"
         return method_name
+    
+    def _force_selection(self, reference_atoms, atoms, selection_str):
+        ref_indices = reference_atoms.select_atoms(selection_str).indices
+        indices = atoms.select_atoms(selection_str).indices
+
+        if len(ref_indices) == 0:
+            raise ValueError(f"No atoms selected in the reference for selection '{selection_str}'.")
+
+        #Select the indices that are in the reference indices
+        if len(ref_indices) != len(indices):
+            indices = np.array([a for a,b in zip(atoms.indices, reference_atoms.indices) if b in ref_indices])
+        
+        if len(ref_indices) != len(indices):
+            raise ValueError(f"Selection length mismatch between reference and trajectory for selection '{selection_str}'.")
+        
+        return ref_indices, indices
+
 
     def add_method(self, method, method_name=None, 
                    selection=None, complementary_selection=None, atoms=None,
@@ -302,8 +319,9 @@ class qValue(AnalysisBase):
             
         #Generate a unique method name
         if type(method) is str:
-            if method_name is None:
-                method_description['name'] = self._updated_method_name(method)
+            method_description['name'] = self._updated_method_name(method)
+        elif method_name is not None:
+            method_description['name'] = self._updated_method_name(method_name)
         else:
             method_description['name'] = self._updated_method_name('Custom')
         reference = method_description['reference']
@@ -327,8 +345,24 @@ class qValue(AnalysisBase):
                 for chain_b in chainIDs:
                     if chain_a != chain_b:
                         selection = f"segid {chain_a}"
-                        complementary_selection = f"chaisegidn {chain_b}"
+                        complementary_selection = f"segid {chain_b}"
                         self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
+            return
+        elif method == 'Interface_CB':
+            #Make a list of the chain IDs
+            method_description['min_seq_sep'] = 0 if min_seq_sep is None else min_seq_sep
+            method_description['contact_cutoff'] = 9.5 if contact_cutoff is None else contact_cutoff
+            if 'N' not in kwargs:
+                method_description['kwargs']['N'] = len(self.reference_selection_CB)
+
+            chainIDs = np.unique(self.reference_universe.atoms.segids)
+            for chain_a in chainIDs:
+                for chain_b in chainIDs:
+                    if chain_a != chain_b:
+                        selection = f"segid {chain_a}"
+                        complementary_selection = f"segid {chain_b}"
+                        self.add_method(method = qvalue_pair_interface_CB, method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CB', **method_description['kwargs'],
+                                        contact_cutoff=method_description['contact_cutoff'], min_seq_sep=method_description['min_seq_sep'])
             return
         elif method == 'Intrachain':
             chainIDs = np.unique(self.reference_universe.atoms.segids)
@@ -343,23 +377,15 @@ class qValue(AnalysisBase):
         
         # Get the indices of the selected atoms
         if method_description['atoms']=='name CA' and alternative_reference is None:
-            ref_indices_a = self.reference_selection_CA.select_atoms(method_description['selection']).indices
-            ref_indices_b = self.reference_selection_CA.select_atoms(method_description['complementary_selection']).indices
-            indices_a = self.selection_CA.select_atoms(method_description['selection']).indices
-            indices_b = self.selection_CA.select_atoms(method_description['complementary_selection']).indices
+            ref_indices_a, indices_a = self._force_selection(self.reference_selection_CA, self.selection_CA, method_description['selection'])
+            ref_indices_b, indices_b = self._force_selection(self.reference_selection_CA, self.selection_CA, method_description['complementary_selection'])
         elif method_description['atoms']=='name CB' and alternative_reference is None:
-            ref_indices_a = self.reference_selection_CB.select_atoms(method_description['selection']).indices
-            ref_indices_b = self.reference_selection_CB.select_atoms(method_description['complementary_selection']).indices
-            indices_a = self.selection_CB.select_atoms(method_description['selection']).indices
-            indices_b = self.selection_CB.select_atoms(method_description['complementary_selection']).indices
+            ref_indices_a, indices_a = self._force_selection(self.reference_selection_CB, self.selection_CB, method_description['selection'])
+            ref_indices_b, indices_b = self._force_selection(self.reference_selection_CB, self.selection_CB, method_description['complementary_selection'])
         else:
-            ref_indices_a = reference.select_atoms(method_description['atoms']).select_atoms(method_description['selection']).indices
-            ref_indices_b = reference.select_atoms(method_description['atoms']).select_atoms(method_description['complementary_selection']).indices
-            indices_a = self.universe.select_atoms(method_description['atoms']).select_atoms(method_description['selection']).indices
-            indices_b = self.universe.select_atoms(method_description['atoms']).select_atoms(method_description['complementary_selection']).indices
+            ref_indices_a, indices_a = self._force_selection(reference.select_atoms(method_description['atoms']), self.universe.select_atoms(method_description['atoms']), method_description['selection'])
+            ref_indices_b, indices_b = self._force_selection(reference.select_atoms(method_description['atoms']), self.universe.select_atoms(method_description['atoms']), method_description['complementary_selection'])
 
-        self.assert_same_length(ref_indices_a, indices_a, "Selection length mismatch between reference and trajectory")
-        self.assert_same_length(ref_indices_b, indices_b, "Complementary selection length mismatch between reference and trajectory")
 
         ref_indices_a_query = f'index {" ".join(map(str, ref_indices_a))}'
         ref_indices_b_query = f'index {" ".join(map(str, ref_indices_b))}'
@@ -502,3 +528,9 @@ def qvalue_pair_onuchic(rij, rijn, seq_sep, a = 1.0, sigma_exp = 0.15):
         """
     sigma_ij = a*np.power(1+seq_sep, sigma_exp)
     return np.exp(-(rij - rijn)**2 / (2.0 * sigma_ij**2))
+
+def qvalue_pair_interface_CB(rij, rijn, seq_sep, N=None, sigma_exp=0.15):
+    # N must be the total number of CB atoms (the old script’s “len(cb_atoms_pdb)”)
+    # Use the old script’s “(1 + (N//2))**sigma_exp” for *all* pairs
+    fixed_sigma = (1 + (N//2))**sigma_exp
+    return np.exp(-(rij - rijn)**2/(2.0 * fixed_sigma**2))

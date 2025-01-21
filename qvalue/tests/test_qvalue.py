@@ -7,8 +7,34 @@ import qvalue
 import pytest
 import sys
 import MDAnalysis as mda
-from qvalue.data.files import DCD, PDB, REF, INFO, DUMP, QW, QO
+from qvalue.data.files import DCD, PDB, REF, INFO, DUMP, QW, QO, QINTERFACE, QINTERFACE_REF, QINTERFACE_DUMP
 import numpy as np
+
+class TestQInterfaceCB(object):
+    @pytest.fixture()
+    def q_value_array(self):
+        q_value_array = []
+        with open(QINTERFACE, 'r') as infile:
+            for line in infile.readlines():
+                q_value_array.append(float(line.strip()))
+        
+        return np.array(q_value_array,dtype=float)
+    
+    @pytest.fixture()
+    def q_interface_ref(self):
+        return mda.Universe(QINTERFACE_REF)
+    
+    @pytest.fixture()
+    def q_interface_dump(self):
+        return mda.Universe(QINTERFACE_DUMP, topology_format='LAMMPSDUMP')
+    
+    def test_qinterface_cb(self, q_interface_dump, q_interface_ref, q_value_array):
+        qvalues = qvalue.qValue(q_interface_dump, q_interface_ref)
+        qvalues.add_method('Interface_CB')
+        qvalues.run()
+        q = qvalues.results['Interface_A_B']['q_values']
+        assert np.allclose(q, q_value_array, atol=0.005)
+        
 
 class TestQValue(object):
 
@@ -128,7 +154,6 @@ def test_import_dcd_file(dcdfile, pdbfile):
 def test_qvalue_imported():
     """Sample test, will always pass so long as import statement worked"""
     assert "qvalue" in sys.modules
-
 
 def test_mdanalysis_logo_length(mdanalysis_logo_text):
     """Example test using a fixture defined in conftest.py"""
