@@ -11,6 +11,7 @@ from qvalue.data.files import DCD, PDB, REF, INFO, DUMP, QW, QO, QINTERFACE, QIN
 import numpy as np
 
 class TestQInterfaceCB(object):
+    #Tested against CalcQ_Interface_CB.py
     @pytest.fixture()
     def q_value_array(self):
         q_value_array = []
@@ -37,7 +38,7 @@ class TestQInterfaceCB(object):
         
 
 class TestQValue(object):
-
+    #Tested against CalcQ_multi.py
     @staticmethod
     def print_sorted_differences(array1, array2, tolerance=0.1):
         """
