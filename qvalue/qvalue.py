@@ -1,119 +1,85 @@
 """
-q-value analysis
-================================================================
+Q-Value Analysis
+=================
 
-Analyze the q-value *q*, a measure of the fraction of native contacts 
-conserved during a simulation. The native contacts are defined as the
-contacts between the selected atoms in the reference structure. This module
-is an extension of the contact analysis module in MDAnalysis. 
-It implements the following additional varieties of Q-value:
+The Q-value is a measure of the fraction of native contacts conserved during a simulation. 
+Native contacts are defined from the selected atoms in a reference structure. 
+This module implements two primary Q-value calculation methods:
 
-1. *Wolynes q*: Defines the q-value as the fraction of native contacts, where
-    the native contacts are defined as the contacts between the selected atoms
-    in the reference structure without any cutoff. Additionally, each contact
-    is weighted by a gaussian function centered aroung the distance between the 
-    atoms in the reference structure and with the standard deviation of the separation
-    based on the sequence among the atoms in the reference structure.
+1. **Wolynes Q**: A weighted measure of native contact preservation.
+    - Native contacts are defined without applying a specific distance cutoff.
+    - Each contact is weighted using a Gaussian function centered on the reference structure's inter-atomic distance and scaled by the sequence separation:
 
     .. math::
-    
-        q(t) = \frac{1}{N} \sum_{i,j} e^{-\frac{(r_{ij} - r_{ij}^N)^2}{2\sigma_{ij}^2}}
+        
+        q(t) = \frac{1}{N} \sum_{i,j} \exp\left(-\frac{(r_{ij} - r_{ij}^N)^2}{2\sigma_{ij}^2}\right)
 
-    where :math:`r_{ij}` is the distance between atoms :math:`i` and :math:`j` in the
+    where:
+    - :math:`r_{ij}` is the distance between atoms :math:`i` and :math:`j` at time :math:`t`.
+    - :math:`r_{ij}^N` is the reference distance between atoms :math:`i` and :math:`j`.
+    - :math:`\sigma_{ij}` is the separation in the sequence between residues :math:`i` and :math:`j`.
 
-2. "Onuchic q": 
+2. **Onuchic Q**: Similar to Wolynes Q but applies additional constraints:
+    - Excludes contacts with a sequence separation below a threshold.
+    - Incorporates a distance cutoff to restrict the evaluation to native contacts.
+    - :math:`\sigma_{ij}` is the separation in the sequence between residues :math:`i` and :math:`j` plus 1.
 
-    
+Attributes
+----------
+- **Fraction of Native Contacts (Q(t))**: Ranges from 0 (no native contacts conserved) to 1 (all native contacts conserved).
 
-The "fraction of native contacts" *q(t)* is a number between 0 and 1, where 1 means that
-all native contacts are conserved and 0 means that no native contacts are conserved.
-
+Usage Example
+-------------
+>>> from MDAnalysis import Universe
+>>> from qvalue_module import qValue
+>>> u = Universe("native.pdb", "trajectory.dcd")
+>>> q_calc = qValue(u)
+>>> q_calc.run()
+>>> q_wolynes = q_calc.results['Wolynes']['q_values']
+>>> q_onuchic = q_calc.results['Onuchic']['q_values']
 """
+
+
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.lib.distances import distance_array
 import numpy as np
 
-
 class qValue(AnalysisBase):
     """
-    Calculate Q-values (fraction of native contacts) across a trajectory.
+    Calculates Q-values (fraction of native contacts) across a trajectory by comparing inter-atomic distances in a trajectory to those in a reference structure.
 
-    This class compares distances between pairs of atoms (or residues) in the
-    current trajectory against a reference structure. It can compute Q-values
-    using one of several methods (e.g. Wolynes or user-defined functions).
     
     Parameters
     ----------
-    universe : MDAnalysis.core.universe.Universe
+    universe :  MDAnalysis.core.universe.Universe 
         The universe (trajectory) on which Q-values are calculated.
-    reference_universe : MDAnalysis.core.universe.Universe, optional
-        A separate reference structure/universe. If not provided, the first
-        frame of ``u`` is used as the reference.
-    primary_selection : str, MDAnalysis.core.groups.AtomGroup, optional
-        A selection string (e.g., ``'name CA'``) or an AtomGroup for the
-        primary group of atoms. If None, uses all atoms in ``u``.
-    secondary_selection : str, MDAnalysis.core.groups.AtomGroup, optional
+    reference_universe :  MDAnalysis.core.universe.Universe , optional
+        A separate reference structure/universe. If not provided, the first frame of  universe  is used as the reference.
+    primary_selection :  str  or  MDAnalysis.core.groups.AtomGroup , optional
+        A selection string (e.g.,  'name CA' ) or an AtomGroup for the primary group of atoms.
+    secondary_selection :  str  or  MDAnalysis.core.groups.AtomGroup , optional
         A selection string or an AtomGroup for the secondary group of atoms.
-        If None, it defaults to the same selection as ``primary_selection``.
-        This allows you to compute either intra-selection contacts or
-        inter-selection contacts.
-    q_method : {'Wolynes'} or callable, optional
-        Method to compute the Q-values. By default, the "Wolynes" method is
-        used. If a callable is provided, it must be a function that takes
-        distances and returns a Q-value or fraction of native contacts.
+    q_method: {'Wolynes','Onuchic', 'Interface','Interchain', callable}, optional
+        Method to compute the Q-values. Default is "Wolynes". If callable, it must accept distances and return Q-values.
     use_pbc : bool, optional
-        Whether to apply periodic boundary conditions when computing distances.
-        Default is True.
+        Whether to apply periodic boundary conditions. Default is  False .
     contact_cutoff : float, optional
-        Distance (in Å) below which two atoms are considered in contact when
-        building the reference contact map. Default is 4.5 Å.
+        Maximum distance (in Å) below which two atoms are considered in contact. Default is  np.inf .
     method_kwargs : dict, optional
-        Additional keyword arguments for the Q-value method (e.g., parameters
-        for Wolynes or user-defined methods).
+        Additional arguments for the Q-value method.
     **basekwargs : dict
-        Additional keyword arguments passed to the :class:`MDAnalysis.analysis.base.AnalysisBase`
-        constructor (e.g., `start`, `stop`, `step`).
+        Additional keyword arguments passed to the base  AnalysisBase  class.
 
     Attributes
     ----------
-    qvalue_function : callable
-        The function used internally to compute Q-values each frame.
-    pbc : bool
-        Whether to apply periodic boundary conditions.
-    selectionA : MDAnalysis.core.groups.AtomGroup or str
-        The primary AtomGroup (or selection string).
-    selectionB : MDAnalysis.core.groups.AtomGroup or str
-        The secondary AtomGroup (or selection string). Defaults to ``selectionA``.
-    refgroup : MDAnalysis.core.groups.AtomGroup
-        The reference AtomGroup. If not provided, uses the first frame of ``u``.
-    r0 : list of ndarray
-        Reference distances (in the reference structure) used for Q-value
-        calculations.
-    native_contacts : list of ndarray
-        Boolean masks of which contacts are considered "native" in the reference.
-    sequence_separation : list of ndarray
-        The sequence separation (in residue index space) for the reference
-        contacts. Used in certain Q-value calculations.
-
-    Notes
-    -----
-    - The Q-value calculation compares distances in each frame to the reference
-      distances (``r0``). 
-    - If you define your own method in ``q_method``, make sure it handles input
-      arrays of distances appropriately.
-    - By default, sequence separation values < 0 are replaced with ``np.inf``
-      to account for discontinuous residue numbering or multiple chains.
-
-    Examples
-    --------
-    >>> from MDAnalysis import Universe
-    >>> from qvalue_module import qValue
-    >>> u = Universe("trajectory.psf", "trajectory.dcd")
-    >>> # Use the first frame of u as the reference
-    >>> q_calc = qValue(u, primary_selection='name CA')
-    >>> q_calc.run()
-    >>> # Access the final Q-values
-    >>> final_q_values = q_calc.timeseries
+    qvalue_function :  callable 
+        Function used to compute Q-values for each frame.
+    r0 :  np.ndarray 
+        Reference inter-atomic distances.
+    seq_sep :  np.ndarray 
+        Sequence separation for atom pairs.
+    qvalues :  np.ndarray 
+        Computed Q-values for each frame.
 
     See Also
     --------
@@ -123,87 +89,34 @@ class qValue(AnalysisBase):
     def __init__(self, 
                  universe, 
                  reference_universe=None, 
-                 primary_selection='name CA',#'name CB or (resname GLY IGL and name CA)', 
-                 secondary_selection=None, 
-                 q_method="Wolynes", 
+                 method=["Wolynes","Onuchic"], 
                  use_pbc=False, 
-                 contact_cutoff=np.inf,
-                 min_seq_sep=3,
-                 max_seq_sep=np.inf,
-                 method_kwargs=None, 
+                 custom_CA_selection = None,
+                 custom_CB_selection = None,
                  **basekwargs):
         """
-        Initialize the Q-value analysis.
-
-        This constructor sets up the references, selections, method of
-        calculation, and other necessary attributes before performing the
-        Q-value computation in :meth:`run`.
-
+        Initialize the Q-value calculation.
+        
         Parameters
         ----------
         universe : MDAnalysis.core.universe.Universe
-            The trajectory (Universe) on which Q-values will be computed.
+            The universe (trajectory) on which Q-values are calculated.
         reference_universe : MDAnalysis.core.universe.Universe, optional
-            A reference Universe for contacts. If None, the first frame of ``u``
-            is used as the reference.
-        primary_selection : str or MDAnalysis.core.groups.AtomGroup, optional
-            A selection or an AtomGroup to define the primary set of atoms.
-        secondary_selection : str or MDAnalysis.core.groups.AtomGroup, optional
-            A selection or an AtomGroup to define the secondary set of atoms.
-            If None, uses the same as the primary selection.
-        q_method : {'Wolynes'} or callable, optional
-            A built-in method name or a user-supplied function to compute Q-values.
+            A separate reference structure/universe. If not provided, the first frame of universe is used as the reference.
+        method : {'Wolynes','Onuchic', 'Interface','Intrachain', callable}, optional
+            Method to compute the Q-values. Default is "Wolynes". If callable, it must accept distances and return Q-values.
         use_pbc : bool, optional
-            Whether to apply periodic boundary conditions when computing distances.
-        contact_cutoff : float, optional
-            Distance cutoff (in Å) for defining native contacts.
-        method_kwargs : dict, optional
-            Additional arguments for the Q-value method.
-        **basekwargs
-            Keyword arguments passed to the :class:`MDAnalysis.analysis.base.AnalysisBase`
-            constructor, such as `start`, `stop`, `step`.
-
-        Raises
-        ------
-        ValueError
-            If the provided `q_method` is not 'Wolynes' or a callable function.
-        """
+            Whether to apply periodic boundary conditions. Default is False.
+        custom_CA_selection : str, optional
+            Custom selection string for the CA atoms. Default is 'name CA'.
+        custom_CB_selection : str, optional
+            Custom selection string for the CB atoms. Default is 'name CB or (name CA and resname GLY IGL)'.
+        **basekwargs : dict
+            Additional keyword arguments passed to the method that calculates the q value.
+        
+            """
         self.universe = universe
         super(qValue, self).__init__(self.universe.trajectory, **basekwargs)
-
-        # Arguments for the qvalue function
-        self.method_kwargs = method_kwargs if method_kwargs is not None else {}
-
-        # Select the qvalue function
-        if q_method == 'Wolynes':
-            self.method_function = qvalue_wolynes
-        else:
-            if not callable(q_method):
-                raise ValueError("method has to be callable or 'Wolynes'")
-            self.method_function = q_method
-
-        # If the reference group is not provided, use the first frame of the trajectory
-        if reference_universe is None:
-            self.reference_universe = universe
-        else:
-            self.reference_universe = reference_universe
-
-
-        # If the selection is not provided, use all atoms
-        if primary_selection is None:
-            self.selection_a = universe.atoms
-            self.reference_selection_a = self.reference_universe.atoms
-        else:
-            self.selection_a = universe.select_atoms(primary_selection)
-            self.reference_selection_a = self.reference_universe.select_atoms(primary_selection)
-
-        # If the selection group B is not provided, use selection group A
-        if secondary_selection is None:
-            self.selection_b = self.selection_a
-            self.reference_selection_b = self.reference_selection_a
-        else:
-            self.selection_b = universe.select_atoms(secondary_selection)
-            self.reference_selection_b = self.reference_universe.select_atoms(secondary_selection)
 
         # Get dimension of box if pbc set to True
         self.use_pbc = use_pbc
@@ -212,46 +125,336 @@ class qValue(AnalysisBase):
         else:
             self._get_box = lambda ts: None
 
-        r0 = distance_array(self.reference_selection_a.positions, self.reference_selection_b.positions, box=self._get_box(self.reference_universe.universe))
-        seq_sep = np.abs(self.reference_selection_a.resids[:, np.newaxis] - self.reference_selection_b.resids[np.newaxis, :], dtype=float)
-        seq_sep [self.reference_selection_a.chainIDs[:, np.newaxis] != self.reference_selection_b.chainIDs[np.newaxis, :]] = np.inf
-        
-        #Select the indices
-        self.i,self.j = np.where((r0<contact_cutoff) & (seq_sep >= min_seq_sep) & (seq_sep <= max_seq_sep) & ~np.isnan(seq_sep))
-        
-        self.r0 = r0[self.i, self.j]
-        self.seq_sep = seq_sep[self.i, self.j]
-        # print(len(self.r0))
-        # print(len(self.seq_sep))
-        
-    def _prepare(self):
-        self.q_per_contact = np.empty((self.n_frames, len(self.r0)))
+        # If the reference group is not provided, use the first frame of the trajectory
+        if reference_universe is None:
+            self.reference_universe = universe
+        else:
+            self.reference_universe = reference_universe
 
+        self.reference_selection_CA = self.select_CA(self.reference_universe, custom_CA_selection)
+        self.selection_CA = self.select_CA(self.universe, custom_CA_selection)
+        self.reference_selection_CB = self.select_CB(self.reference_universe, custom_CB_selection)
+        self.selection_CB = self.select_CB(self.universe, custom_CB_selection)
+        
+        # Check that the selections are the same length
+        self.assert_same_length(self.reference_selection_CA, self.selection_CA, "CA selection length mismatch between reference and trajectory")
+        self.assert_same_length(self.reference_selection_CB, self.selection_CB, "CB selection length mismatch between reference and trajectory")
+
+        self.nframes = len(self.universe.trajectory)
+        
+        self.methods=[]
+        #If the method is an iterable add each method, else add the single method
+        if hasattr(method, '__iter__'):
+            for method in method:
+                self.add_method(method)
+        else:
+            self.add_method(method)
+
+        
+    def select_CA(self, universe, custom_CA_selection=None):
+        """
+        Select the alpha carbon atoms from the universe.
+        """
+        #CA and CB selection
+        if custom_CA_selection is not None:
+            selection_CA = universe.select_atoms(custom_CA_selection)
+        else:
+            try:
+                selection_CA = universe.select_atoms('name CA')
+            except AttributeError as e:
+                print("CA selection failed for trajectory. Assuming lammps input.")
+                selection_CA = universe.select_atoms('type 1')
+        return selection_CA
+
+    def select_CB(self, universe, custom_CB_selection):
+        """
+        Select the beta carbon atoms from the universe.
+        """
+        if custom_CB_selection is not None:
+            selection_CB = universe.select_atoms(custom_CB_selection)
+        else:
+            try:
+                selection_CB = universe.select_atoms('name CB or (name CA and resname GLY IGL)')
+            except AttributeError as e:
+                print("CB selection failed for trajectory. Assuming lammps input.")
+                selected_indices = []
+                for atom in universe.atoms:
+                    if atom.type == '1':
+                        CA_atom=atom
+                    elif atom.type == '4':
+                        selected_indices.append(atom.index)
+                    elif atom.type == '5':
+                        selected_indices.append(CA_atom.index)
+                selection_CB = universe.atoms[selected_indices]
+        return selection_CB
+
+    def assert_same_length(self, selection_a, selection_b, message=None):
+        """
+        Check that two selections have the same length.
+        """
+        if len(selection_a) != len(selection_b):
+            # If the selections are not the same length go through the selections and find the residues that are not in the other selection
+            resids_a = selection_a.resids
+            resids_b = selection_b.resids
+            if len(resids_a) > len(resids_b):
+                missing_residues = [resid for resid in resids_a if resid not in resids_b]
+            else:
+                missing_residues = [resid for resid in resids_b if resid not in resids_a]
+
+            print(message)
+            print(f"Selections have different lengths.")
+            print(f"Length of selection A: {len(selection_a)}")
+            print(f"Length of selection B: {len(selection_b)}")
+            print(f"Missing residues: {missing_residues}")
+            
+            raise ValueError("Selections must have the same length.")
+
+
+    def _updated_method_name(self, method_name):
+        """
+        Generate a unique method name by adding a suffix
+        if the given method_name already exists in self.methods.
+
+        Parameters:
+            method_name (str): The base name of the method to check.
+
+        Returns:
+            str: A unique method name.
+
+        Raises:
+            ValueError: If a unique name cannot be generated.
+        """
+
+        if method_name in self.methods:
+            i = 1
+            while f"{method_name}_{i}" in self.methods:
+                i += 1
+                if i >= 1000:
+                    raise ValueError(f"Unable to generate a unique name for '{method_name}'.")
+            return f"{method_name}_{i}"
+        return method_name
+
+    def add_method(self, method, method_name=None, 
+                   selection=None, complementary_selection=None, atoms=None,
+                   contact_cutoff=None, min_seq_sep=None, max_seq_sep=None,
+                   store_per_residue=False, store_per_contact=False,
+                   alternative_reference = None,
+                   **kwargs):
+        """
+        Add a new method to the Q-value calculation.
+
+        Parameters
+        ----------
+        method : {'Wolynes','Onuchic', 'Interface','Intrachain', callable}
+            Method to compute the Q-values. If callable, it must accept distances and return Q-values.
+        method_name : str, optional
+            Name of the method. If not provided, a unique name is generated.
+        selection : str, optional
+            Selection string for the primary group of atoms. Default is 'all'.
+        complementary_selection : str, optional
+            Selection string for the secondary group of atoms. Default is 'all'.
+        atoms : str, optional
+            Atom selection string. Default is 'name CA'.
+        contact_cutoff : float, optional
+            Maximum distance (in Å) below which two atoms are considered in contact. Default is np.inf.
+        min_seq_sep : int, optional
+            Minimum sequence separation between residues. Default is 3.
+        max_seq_sep : int, optional
+            Maximum sequence separation between residues. Default is np.inf.
+        store_per_residue : bool, optional
+            Whether to store Q-values per residue. Default is False.
+        store_per_contact : bool, optional
+            Whether to store Q-values per contact. Default is False.
+        alternative_reference : MDAnalysis.core.universe.Universe, optional
+            An alternative reference structure/universe. If not provided, the reference universe is used.
+        **kwargs : dict
+        """
+        
+        method_description = {'name':method_name, 
+                              'function':method, 
+                              'selection':selection,
+                              'complementary_selection':complementary_selection,
+                              'atoms':atoms,
+                              'contact_cutoff':contact_cutoff, 
+                              'min_seq_sep':min_seq_sep, 
+                              'max_seq_sep':max_seq_sep,
+                              'reference':alternative_reference,
+                              'store_per_contact':store_per_contact,
+                              'store_per_residue':store_per_residue,
+                              'kwargs': kwargs}
+        
+        #General defaults
+        if selection is None:
+            method_description['selection'] = 'all'
+        if complementary_selection is None:
+            method_description['complementary_selection'] = 'all'
+        if contact_cutoff is None:
+            method_description['contact_cutoff'] = np.inf
+        if atoms is None:
+            method_description['atoms'] = 'name CA'
+        if min_seq_sep is None:
+            method_description['min_seq_sep'] = 3
+        if max_seq_sep is None:
+            method_description['max_seq_sep'] = np.inf
+        if alternative_reference is None:
+            method_description['reference'] = self.reference_universe
+        
+            
+        #Generate a unique method name
+        if type(method) is str:
+            if method_name is None:
+                method_description['name'] = self._updated_method_name(method)
+        else:
+            method_description['name'] = self._updated_method_name('Custom')
+        reference = method_description['reference']
+
+        if len(reference.trajectory) > 1:
+            raise ValueError("Alternative reference must be a single frame.")
+                  
+        # Define the method function based on the method name
+        if method == 'Wolynes':
+            method_description['function'] = qvalue_pair_wolynes
+        elif method == 'Onuchic':
+            if contact_cutoff is None:
+                method_description['contact_cutoff'] = 9.5
+            if min_seq_sep is None:
+                method_description['min_seq_sep'] = 4
+            method_description['function'] = qvalue_pair_onuchic
+        elif method == 'Interface':
+            #Make a list of the chain IDs
+            chainIDs = np.unique(self.reference_universe.atoms.segids)
+            for chain_a in chainIDs:
+                for chain_b in chainIDs:
+                    if chain_a != chain_b:
+                        selection = f"segid {chain_a}"
+                        complementary_selection = f"chaisegidn {chain_b}"
+                        self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
+        elif method == 'Intrachain':
+            chainIDs = np.unique(self.reference_universe.atoms.segids)
+            for chain in chainIDs:
+                selection = f"segid {chain}"
+                self.add_method('Wolynes', method_name=f'Intrachain_{chain}', selection=selection, complementary_selection=selection, atoms='name CA', **kwargs)
+        elif callable(method):
+            self.method_functions.append({'name':'Custom', function:method, 'selection':selection, 'atoms':atoms, 'kwargs':kwargs})
+        else:
+            raise ValueError(f"Method '{method}' is not recognized.")
+        
+        # Get the indices of the selected atoms
+        if method_description['atoms']=='name CA' and alternative_reference is None:
+            ref_indices_a = self.reference_selection_CA.select_atoms(method_description['selection']).indices
+            ref_indices_b = self.reference_selection_CA.select_atoms(method_description['complementary_selection']).indices
+            indices_a = self.selection_CA.select_atoms(method_description['selection']).indices
+            indices_b = self.selection_CA.select_atoms(method_description['complementary_selection']).indices
+        elif method_description['atoms']=='name CB' and alternative_reference is None:
+            ref_indices_a = self.reference_selection_CB.select_atoms(method_description['selection']).indices
+            ref_indices_b = self.reference_selection_CB.select_atoms(method_description['complementary_selection']).indices
+            indices_a = self.selection_CB.select_atoms(method_description['selection']).indices
+            indices_b = self.selection_CB.select_atoms(method_description['complementary_selection']).indices
+        else:
+            ref_indices_a = reference.select_atoms(method_description['atoms']).select_atoms(method_description['selection']).indices
+            ref_indices_b = reference.select_atoms(method_description['atoms']).select_atoms(method_description['complementary_selection']).indices
+            indices_a = self.universe.select_atoms(method_description['atoms']).select_atoms(method_description['selection']).indices
+            indices_b = self.universe.select_atoms(method_description['atoms']).select_atoms(method_description['complementary_selection']).indices
+
+        self.assert_same_length(ref_indices_a, indices_a, "Selection length mismatch between reference and trajectory")
+        self.assert_same_length(ref_indices_b, indices_b, "Complementary selection length mismatch between reference and trajectory")
+
+        ref_indices_a_query = f'index {" ".join(map(str, ref_indices_a))}'
+        ref_indices_b_query = f'index {" ".join(map(str, ref_indices_b))}'
+
+        method_description.update({'ref_indices_a':ref_indices_a, 'ref_indices_b':ref_indices_b, 'indices_a':indices_a, 'indices_b':indices_b})
+
+
+        if alternative_reference is None:
+            alternative_reference = self.reference_universe
+
+        #Calculate the reference distances and sequence separations
+        r0 = distance_array(alternative_reference.select_atoms(ref_indices_a_query).positions, alternative_reference.select_atoms(ref_indices_b_query).positions, box=self._get_box(alternative_reference.universe))
+        seq_sep = np.abs(alternative_reference.select_atoms(ref_indices_a_query).resids[:, np.newaxis] - alternative_reference.select_atoms(ref_indices_b_query).resids[np.newaxis, :], dtype=float)
+        seq_sep[alternative_reference.select_atoms(ref_indices_a_query).atoms.segindices[:, np.newaxis] != alternative_reference.select_atoms(ref_indices_b_query).atoms.segindices[np.newaxis, :]] = len(seq_sep)
+
+        assert r0.shape == seq_sep.shape, "Reference distances and sequence separations must have the same shape."
+        assert len(ref_indices_a) == len(r0), "Reference distances must have the same length as the reference indices."
+
+        # Filter the pairs based on the cutoffs
+        max_r0=method_description['contact_cutoff']
+        min_seq_sep=method_description['min_seq_sep']
+        max_seq_sep=method_description['max_seq_sep']
+        i,j = np.where((r0<max_r0) & (seq_sep >= min_seq_sep) & (seq_sep <= max_seq_sep))
+
+        #Select the indices from the trajectory
+        ti = indices_a[i]
+        tj = indices_b[j]
+
+        #Select r0 and seq_sep for the pairs
+        r0 = r0[i, j]
+        seq_sep = seq_sep[i, j]
+ 
+        
+        method_description.update({'ti':ti, 'tj':tj})
+        method_description.update({'n_pairs':len(i)})
+        method_description.update({'n_residues':len(np.unique(np.concatenate((ti, tj))))})
+        method_description.update({'r0':r0, 'seq_sep':seq_sep})
+        self.methods.append(method_description)
+
+    def _prepare(self):
+        #Define the selections for each method
+        self.all_ti = []
+        self.all_tj = []
+        self.results = {}
+        for method in self.methods:
+            self.all_ti.append(method['ti'])
+            self.all_tj.append(method['tj'])
+            result_template = {'q_values':np.empty(self.nframes)}
+            if method['store_per_contact']:
+                result_template['q_per_contact'] = np.empty((self.n_frames, method['n_pairs']))
+            if method['store_per_residue']:
+                result_template['q_per_residue'] = np.empty((self.n_frames, method['n_residues']))
+            self.results.update({method['name']:result_template})
+
+        self.all_ti=np.unique(np.concatenate(self.all_ti))
+        self.all_tj=np.unique(np.concatenate(self.all_tj))
+        self.all_ti.sort()
+        self.all_tj.sort()
+        self.all_ti_query = f'index {" ".join(map(str, self.all_ti))}'
+        self.all_tj_query = f'index {" ".join(map(str, self.all_tj))}'
+
+        #Reindex ti
+        for method in self.methods:
+            method['ti_reindex'] = [self.all_ti.tolist().index(x) for x in method['ti']]
+            method['tj_reindex'] = [self.all_tj.tolist().index(x) for x in method['tj']]
+        
     def _single_frame(self):
         # distances in the current frame
         r_matrix = distance_array(
-            self.selection_a.positions,
-            self.selection_b.positions,
+            self.universe.select_atoms(self.all_ti_query).positions,
+            self.universe.select_atoms(self.all_tj_query).positions,
             box=self._get_box(self._ts)
         )
         # Pull out only the pairs we decided were “native” in the reference
-        rij_frame = r_matrix[self.i, self.j]
-        
-        # Evaluate the pairwise exponent for each contact
-        q_per_contact = self.method_function(
-            rij_frame,    # current distances (Å)
-            self.r0,      # reference distances (Å)
-            self.seq_sep, # sequence separations
-            **self.method_kwargs
-        )
-        
-        # The final Q for this frame is the average over all “native” pairs
-        self.q_per_contact[self._frame_index] = q_per_contact
+        for method in self.methods:
+            i=method['ti_reindex']
+            j=method['tj_reindex']
+            rij_frame = r_matrix[i, j]
+            
+            # Evaluate the pairwise exponent for each contact
+            q_per_contact = method['function'](
+                rij_frame,    # current distances (Å)
+                method['r0'],      # reference distances (Å)
+                method['seq_sep'], # sequence separations
+                **method['kwargs']
+            )
+            
+            if method['store_per_contact']:
+                self.results[method['name']]['q_per_contact'][self._frame_index] = q_per_contact
+            if method['store_per_residue']:
+                self.results[method['name']]['q_per_residue'][self._frame_index] = np.mean(q_per_contact, axis=1)
+            self.results[method['name']]['q_values'][self._frame_index] = np.mean(q_per_contact)
 
     def _conclude(self):
-        self.qvalues = np.mean(self.q_per_contact, axis=1)
+        pass
 
-def qvalue_wolynes(rij, rijn, seq_sep, a = 1.0, sigma_exp=0.15):
+def qvalue_pair_wolynes(rij, rijn, seq_sep, a = 1.0, sigma_exp = 0.15):
     """
     Wolynes Q value contribution for each pair of atoms.
     
@@ -275,4 +478,25 @@ def qvalue_wolynes(rij, rijn, seq_sep, a = 1.0, sigma_exp=0.15):
         An array of shape (n_contacts,) giving exp(-((rij-rijn)^2)/(2*sigma^2)).
     """
     sigma_ij = a*np.power(seq_sep, sigma_exp)
+    return np.exp(-(rij - rijn)**2 / (2.0 * sigma_ij**2))
+
+def qvalue_pair_onuchic(rij, rijn, seq_sep, a = 1.0, sigma_exp = 0.15):
+    """
+    Onuchic Q value contribution for each pair of atoms.
+    
+    Parameters
+    ----------
+    rij : array
+        Distances between the i-j pairs in the frame (Å).
+    rijn : array
+        Distances between the i-j pairs in the reference structure (Å).
+    seq_sep : array
+        Sequence separations between residues i and j.
+    a : float
+        Base “sigma” in Å for one residue separation, e.g. a=1.0 means 1 Å
+        for a 1-residue separation (equivalent to 0.1 nm if you were in nm).
+    sigma_exp : float
+        Exponent for the sequence separation: sigma_ij = a * (1+|i-j|)^sigma_exp.
+        """
+    sigma_ij = a*np.power(1+seq_sep, sigma_exp)
     return np.exp(-(rij - rijn)**2 / (2.0 * sigma_ij**2))

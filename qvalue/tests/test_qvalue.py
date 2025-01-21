@@ -7,7 +7,7 @@ import qvalue
 import pytest
 import sys
 import MDAnalysis as mda
-from qvalue.data.files import DCD, PDB, REF, INFO
+from qvalue.data.files import DCD, PDB, REF, INFO, DUMP, QW, QO
 import numpy as np
 
 class TestQValue(object):
@@ -54,8 +54,12 @@ class TestQValue(object):
         return mda.Universe(PDB, DCD)
     
     @pytest.fixture()
-    def reference(self):
+    def reference_universe(self):
         return mda.Universe(REF)
+    
+    @pytest.fixture()
+    def lammps_universe(self):
+        return mda.Universe(DUMP,topology_format='LAMMPSDUMP')
     
     @pytest.fixture()
     def q_value_array(self):
@@ -72,12 +76,43 @@ class TestQValue(object):
                 q_value_array.append(float(parts[1]))
         
         return np.array(q_value_array,dtype=float)
+    
+    @pytest.fixture()
+    def q_wolynes_array(self):
+        q_value_array = []
+        with open(QW, 'r') as infile:
+            for line in infile.readlines():
+                q_value_array.append(float(line.strip()))
+        
+        return np.array(q_value_array,dtype=float)
+    
+    @pytest.fixture()
+    def q_onuchic_array(self):
+        q_value_array = []
+        with open(QO, 'r') as infile:
+            for line in infile.readlines():
+                q_value_array.append(float(line.strip()))
+        
+        return np.array(q_value_array,dtype=float)
 
-    def test_qvalue(self, universe, reference,q_value_array):
-        qvalues = qvalue.qValue(universe, reference)
+    def test_qvalue(self, universe, reference_universe, q_value_array):
+        qvalues = qvalue.qValue(universe, reference_universe)
         qvalues.run()
+        qw = qvalues.results['Wolynes']['q_values']
         #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
-        assert np.allclose(qvalues.qvalues, q_value_array, atol=0.005)
+        assert np.allclose(qw, q_value_array, atol=0.005)
+
+    def test_qvalue_wolynes(self, lammps_universe, reference_universe,q_wolynes_array):
+        qvalues = qvalue.qValue(lammps_universe, reference_universe)
+        qvalues.run()
+        qw = qvalues.results['Wolynes']['q_values']
+        assert np.allclose(qw, q_wolynes_array, atol=0.005)
+
+    def test_qvalue_onuchic(self, lammps_universe, reference_universe,q_onuchic_array):
+        qvalues = qvalue.qValue(lammps_universe, reference_universe)
+        qvalues.run()
+        qo = qvalues.results['Onuchic']['q_values']
+        assert np.allclose(qo, q_onuchic_array, atol=0.005)
 
 @pytest.fixture
 def dcdfile():
@@ -99,3 +134,6 @@ def test_mdanalysis_logo_length(mdanalysis_logo_text):
     """Example test using a fixture defined in conftest.py"""
     logo_lines = mdanalysis_logo_text.split("\n")
     assert len(logo_lines) == 46, "Logo file does not have 46 lines!"
+
+
+
