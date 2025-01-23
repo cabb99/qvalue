@@ -12,7 +12,7 @@ This module implements two primary Q-value calculation methods:
 
     .. math::
         
-        q(t) = \frac{1}{N} \sum_{i,j} \exp\left(-\frac{(r_{ij} - r_{ij}^N)^2}{2\sigma_{ij}^2}\right)
+        q(t) = \\frac{1}{N} \\sum_{i,j} \\exp\\left(-\\frac{(r_{ij} - r_{ij}^N)^2}{2\\sigma_{ij}^2}\\right)
 
     where:
     - :math:`r_{ij}` is the distance between atoms :math:`i` and :math:`j` at time :math:`t`.
@@ -24,19 +24,18 @@ This module implements two primary Q-value calculation methods:
     - Incorporates a distance cutoff to restrict the evaluation to native contacts.
     - :math:`\sigma_{ij}` is the separation in the sequence between residues :math:`i` and :math:`j` plus 1.
 
-Attributes
-----------
-- **Fraction of Native Contacts (Q(t))**: Ranges from 0 (no native contacts conserved) to 1 (all native contacts conserved).
-
 Usage Example
 -------------
->>> from MDAnalysis import Universe
->>> from qvalue_module import qValue
->>> u = Universe("native.pdb", "trajectory.dcd")
->>> q_calc = qValue(u)
->>> q_calc.run()
->>> q_wolynes = q_calc.results['Wolynes']['q_values']
->>> q_onuchic = q_calc.results['Onuchic']['q_values']
+
+.. code-block:: python
+
+    from MDAnalysis import Universe
+    from qvalue_module import qValue
+    u = Universe("native.pdb", "trajectory.dcd")
+    q_calc = qValue(u)
+    q_calc.run()
+    q_wolynes = q_calc.results['Wolynes']['q_values']
+    q_onuchic = q_calc.results['Onuchic']['q_values']
 """
 
 

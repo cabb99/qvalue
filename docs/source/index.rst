@@ -12,6 +12,7 @@ Welcome to Qvalue's documentation!
 
    getting_started
    api
+   dev
 
 
 
