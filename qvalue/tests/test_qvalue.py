@@ -139,19 +139,12 @@ class TestQValue(object):
         return np.array(q_value_array,dtype=float)
 
     def test_qvalue(self, universe, reference_universe, q_value_array):
+        #Verified agains openawsem q values
         qvalues = qvalue.qValue(universe, reference_universe)
         qvalues.run()
         qw = qvalues.results['Wolynes']['q_values']
         #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
         assert np.allclose(qw, q_value_array, atol=0.005)
-
-    def test_qcvalue(self, universe, reference_universe, qc_value_array):
-        qvalues = qvalue.qValue(universe, reference_universe)
-        qvalues.add_method('Contact')
-        qvalues.run()
-        qc = qvalues.results['Contact']['q_values']
-        #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
-        assert np.allclose(qc, qc_value_array, atol=0.005)
 
     def test_qvalue_wolynes(self, lammps_universe, reference_universe,q_wolynes_array):
         qvalues = qvalue.qValue(lammps_universe, reference_universe)
@@ -164,6 +157,14 @@ class TestQValue(object):
         qvalues.run()
         qo = qvalues.results['Onuchic']['q_values']
         assert np.allclose(qo, q_onuchic_array, atol=0.005)
+
+    def test_qcvalue(self, universe, reference_universe, qc_value_array):
+        #Verified agains openawsem qc values
+        qvalues = qvalue.qValue(universe, reference_universe)
+        qvalues.add_method('Contact')
+        qvalues.run()
+        qc = qvalues.results['Contact']['q_values']
+        assert np.allclose(qc, qc_value_array, atol=0.005)
 
 @pytest.fixture
 def dcdfile():
