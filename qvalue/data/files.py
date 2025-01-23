@@ -20,11 +20,11 @@ openmm_files = data_directory / 'openmm'
 
 
 MDANALYSIS_LOGO = data_directory / "mda.txt"
-DCD = openmm_files / 'movie.dcd'
-PDB = openmm_files / 'native.pdb'
-REF = openmm_files / 'crystal_structure-openmmawsem.pdb'
-CIF = openmm_files / '1r69.cif'
-INFO = openmm_files / 'info.dat'
+DCD = openmm_files / '1R69'/ 'movie.dcd'
+PDB = openmm_files / '1R69'/ 'native.pdb'
+REF = openmm_files / '1R69'/ 'crystal_structure-openmmawsem.pdb'
+CIF = openmm_files / '1R69'/ '1r69.cif'
+INFO = openmm_files / '1R69' / 'info.dat'
 DUMP = lammps_files / '1R69' /'dump.lammpstrj'
 QW = lammps_files / '1R69' / 'qw'
 QO = lammps_files / '1R69' / 'qo'

@@ -105,6 +105,22 @@ class TestQValue(object):
         return np.array(q_value_array,dtype=float)
     
     @pytest.fixture()
+    def qc_value_array(self):
+        q_value_array = []
+        with open(INFO, 'r') as infile:
+            lines = infile.readlines()
+        
+        # Skip the first line (header)
+        data_lines = lines[1:]
+        
+        for line in data_lines:
+            parts = line.split()
+            if len(parts) >= 3:
+                q_value_array.append(float(parts[2]))
+        
+        return np.array(q_value_array,dtype=float)
+    
+    @pytest.fixture()
     def q_wolynes_array(self):
         q_value_array = []
         with open(QW, 'r') as infile:
@@ -128,6 +144,14 @@ class TestQValue(object):
         qw = qvalues.results['Wolynes']['q_values']
         #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
         assert np.allclose(qw, q_value_array, atol=0.005)
+
+    def test_qcvalue(self, universe, reference_universe, qc_value_array):
+        qvalues = qvalue.qValue(universe, reference_universe)
+        qvalues.add_method('Contact')
+        qvalues.run()
+        qc = qvalues.results['Contact']['q_values']
+        #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
+        assert np.allclose(qc, qc_value_array, atol=0.005)
 
     def test_qvalue_wolynes(self, lammps_universe, reference_universe,q_wolynes_array):
         qvalues = qvalue.qValue(lammps_universe, reference_universe)

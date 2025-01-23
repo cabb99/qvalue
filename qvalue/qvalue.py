@@ -339,7 +339,7 @@ class qValue(AnalysisBase):
                 method_description['min_seq_sep'] = 4
             method_description['function'] = qvalue_pair_onuchic
         elif method == 'Interface':
-            #Make a list of the chain IDs
+            raise NotImplementedError()
             chainIDs = np.unique(self.reference_universe.atoms.segids)
             for chain_a in chainIDs:
                 for chain_b in chainIDs:
@@ -349,7 +349,6 @@ class qValue(AnalysisBase):
                         self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
             return
         elif method == 'Interface_CB':
-            #Make a list of the chain IDs
             method_description['min_seq_sep'] = 0 if min_seq_sep is None else min_seq_sep
             method_description['contact_cutoff'] = 9.5 if contact_cutoff is None else contact_cutoff
             if 'N' not in kwargs:
@@ -365,11 +364,18 @@ class qValue(AnalysisBase):
                                         contact_cutoff=method_description['contact_cutoff'], min_seq_sep=method_description['min_seq_sep'])
             return
         elif method == 'Intrachain':
+            raise NotImplementedError()
             chainIDs = np.unique(self.reference_universe.atoms.segids)
             for chain in chainIDs:
                 selection = f"segid {chain}"
                 self.add_method('Wolynes', method_name=f'Intrachain_{chain}', selection=selection, complementary_selection=selection, atoms='name CA', **kwargs)
             return
+        elif method == 'Contact':
+            method_description['min_seq_sep'] = 10 if min_seq_sep is None else min_seq_sep
+            if 'sigma' not in kwargs:
+                method_description['kwargs']['a'] = 2
+            method_description['function'] = qvalue_pair_wolynes
+
         elif callable(method):
             pass
         else:
