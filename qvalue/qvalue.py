@@ -418,16 +418,50 @@ class qValue(AnalysisBase):
         #Select the indices from the trajectory
         ti = indices_a[i]
         tj = indices_b[j]
+        
+        if method_description['store_per_residue']:
+            ti_elements, ti_counts = np.unique(ti,return_counts=True)
+            tj_elements, tj_counts = np.unique(tj,return_counts=True)
+            tij_elements = np.unique(np.concatenate((ti_elements, tj_elements)))
+            n_residues = len(tij_elements)
+           
+            ti_sort_idx = np.argsort(ti_elements)
+            ti_elements = ti_elements[ti_sort_idx]
+            ti_counts = ti_counts[ti_sort_idx]
+
+            tj_sort_idx = np.argsort(tj_elements)
+            tj_elements = tj_elements[tj_sort_idx]
+            tj_counts = tj_counts[tj_sort_idx]
+
+            tij_elements.sort()
+
+            ti_prime = np.searchsorted(ti_elements, ti)
+            tj_prime = np.searchsorted(tj_elements, tj)
+            ti_elements_prime = np.searchsorted(tij_elements, ti_elements)
+            tj_elements_prime = np.searchsorted(tij_elements, tj_elements)
+
+            q_count = np.zeros(n_residues)
+
+            q_count[ti_elements_prime] += ti_counts
+            q_count[tj_elements_prime] += tj_counts
 
         #Select r0 and seq_sep for the pairs
         r0 = r0[i, j]
         seq_sep = seq_sep[i, j]
- 
-        
+
+        method_description['chain_res'] = {atom.index: (atom.segid , atom.resid) for atom in self.universe.atoms if i in ti or i in tj}
         method_description.update({'ti':ti, 'tj':tj})
         method_description.update({'n_pairs':len(i)})
-        method_description.update({'n_residues':len(np.unique(np.concatenate((ti, tj))))})
         method_description.update({'r0':r0, 'seq_sep':seq_sep})
+        if method_description['store_per_residue']:
+            method_description.update({'ti_prime':ti_prime, 'tj_prime':tj_prime})
+            #method_description.update({'ti_elements':ti_elements, 'tj_elements':tj_elements})
+            method_description.update({'ti_elements_prime':ti_elements_prime, 'tj_elements_prime':tj_elements_prime})
+            #method_description.update({'ti_counts':ti_counts, 'tj_counts':tj_counts})
+            method_description.update({'q_count':q_count})
+            method_description.update({'n_i':len(ti_elements), 'n_j':len(tj_elements)})
+            method_description.update({'n_residues':n_residues})
+
         self.methods.append(method_description)
 
     def _prepare(self):
@@ -481,11 +515,41 @@ class qValue(AnalysisBase):
             if method['store_per_contact']:
                 self.results[method['name']]['q_per_contact'][self._frame_index] = q_per_contact
             if method['store_per_residue']:
-                self.results[method['name']]['q_per_residue'][self._frame_index] = np.mean(q_per_contact, axis=1)
+                ti_prime = method['ti_prime']
+                tj_prime = method['tj_prime']
+                ti_elements_prime = method['ti_elements_prime']
+                tj_elements_prime = method['tj_elements_prime']
+                n_residues = method['n_residues']
+                n_i = method['n_i']
+                n_j = method['n_j']
+                q_count = method['q_count']
+                
+                q_matrix = np.zeros((n_i,n_j))
+                q_matrix[ti_prime,tj_prime] = q_per_contact
+
+                q_sum = np.zeros(n_residues)
+
+                q_sum[ti_elements_prime] += q_matrix.sum(axis=1)
+                q_sum[tj_elements_prime] += q_matrix.sum(axis=0)
+                q_per_residue = q_sum / q_count
+
+                self.results[method['name']]['q_per_residue'][self._frame_index] = q_per_residue
             self.results[method['name']]['q_values'][self._frame_index] = np.mean(q_per_contact)
 
     def _conclude(self):
         pass
+
+    def plot(self):
+        """
+        Plot the Q-values for each method.
+        """
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        for method in self.results:
+            ax.plot(self.results[self.results['name']]['q_values'], label=self.results['name'])
+        ax.legend()
+        plt.show()
+        return ax
 
 def qvalue_pair_wolynes(rij, rijn, seq_sep, a = 1.0, sigma_exp = 0.15):
     """
