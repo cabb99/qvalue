@@ -448,12 +448,12 @@ class qValue(AnalysisBase):
         #Select r0 and seq_sep for the pairs
         r0 = r0[i, j]
         seq_sep = seq_sep[i, j]
-
-        method_description['chain_res'] = {atom.index: (atom.segid , atom.resid) for atom in self.universe.atoms if i in ti or i in tj}
+  
         method_description.update({'ti':ti, 'tj':tj})
         method_description.update({'n_pairs':len(i)})
         method_description.update({'r0':r0, 'seq_sep':seq_sep})
         if method_description['store_per_residue']:
+            method_description['chain_res'] = [f'{atom.segid}_{atom.resid}' for atom in self.universe.atoms if atom.index in tij_elements]
             method_description.update({'ti_prime':ti_prime, 'tj_prime':tj_prime})
             #method_description.update({'ti_elements':ti_elements, 'tj_elements':tj_elements})
             method_description.update({'ti_elements_prime':ti_elements_prime, 'tj_elements_prime':tj_elements_prime})
@@ -476,6 +476,7 @@ class qValue(AnalysisBase):
             if method['store_per_contact']:
                 result_template['q_per_contact'] = np.empty((self.n_frames, method['n_pairs']))
             if method['store_per_residue']:
+                result_template['chain_res'] = method['chain_res']
                 result_template['q_per_residue'] = np.empty((self.n_frames, method['n_residues']))
             self.results.update({method['name']:result_template})
 
