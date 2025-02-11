@@ -546,7 +546,7 @@ class qValue(AnalysisBase):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         for method in self.results:
-            ax.plot(self.results[self.results['name']]['q_values'], label=self.results['name'])
+            ax.plot(self.results[method]['q_values'], label=method)
         ax.legend()
         plt.show()
         return ax
