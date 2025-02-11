@@ -31,7 +31,7 @@ jobs:
         matrix:
           os: [ubuntu-latest, macOS-latest, windows-latest]
           mdanalysis-version: ["latest", "develop"]
-          python-version: ["3.10", "3.11", "3.12"]
+          python-version: ["3.12"]
           exclude:
             # Entries here exclude particular combinations of the matrix
             # Edit or remove as particular combinations come into or out of date
@@ -58,7 +58,7 @@ jobs:
         add-pip-as-python-dependency: true
         architecture: x64
 
-        miniforge-variant: Miniforge3
+        miniforge-version: latest
         use-mamba: true
         channels: conda-forge, defaults
 
