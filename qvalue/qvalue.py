@@ -224,7 +224,7 @@ class qValue(AnalysisBase):
             ValueError: If a unique name cannot be generated.
         """
 
-        if method_name in self.methods:
+        if any(m['name'] == method_name for m in self.methods):
             i = 1
             while f"{method_name}_{i}" in self.methods:
                 i += 1
@@ -317,10 +317,10 @@ class qValue(AnalysisBase):
         
             
         #Generate a unique method name
-        if type(method) is str:
-            method_description['name'] = self._updated_method_name(method)
-        elif method_name is not None:
+        if method_name is not None:
             method_description['name'] = self._updated_method_name(method_name)
+        elif type(method) is str:
+            method_description['name'] = self._updated_method_name(method)
         else:
             method_description['name'] = self._updated_method_name('Custom')
         reference = method_description['reference']
