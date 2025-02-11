@@ -339,14 +339,14 @@ class qValue(AnalysisBase):
             method_description['function'] = qvalue_pair_onuchic
         elif method == 'Interface':
             raise NotImplementedError()
-            chainIDs = np.unique(self.reference_universe.atoms.segids)
-            for chain_a in chainIDs:
-                for chain_b in chainIDs:
-                    if chain_a != chain_b:
-                        selection = f"segid {chain_a}"
-                        complementary_selection = f"segid {chain_b}"
-                        self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
-            return
+            # chainIDs = np.unique(self.reference_universe.atoms.segids)
+            # for chain_a in chainIDs:
+            #     for chain_b in chainIDs:
+            #         if chain_a != chain_b:
+            #             selection = f"segid {chain_a}"
+            #             complementary_selection = f"segid {chain_b}"
+            #             self.add_method('Wolynes', method_name=f'Interface_{chain_a}_{chain_b}', selection=selection, complementary_selection=complementary_selection, atoms='name CA', **kwargs)
+            # return
         elif method == 'Interface_CB':
             method_description['min_seq_sep'] = 0 if min_seq_sep is None else min_seq_sep
             method_description['contact_cutoff'] = 9.5 if contact_cutoff is None else contact_cutoff
@@ -364,11 +364,11 @@ class qValue(AnalysisBase):
             return
         elif method == 'Intrachain':
             raise NotImplementedError()
-            chainIDs = np.unique(self.reference_universe.atoms.segids)
-            for chain in chainIDs:
-                selection = f"segid {chain}"
-                self.add_method('Wolynes', method_name=f'Intrachain_{chain}', selection=selection, complementary_selection=selection, atoms='name CA', **kwargs)
-            return
+            # chainIDs = np.unique(self.reference_universe.atoms.segids)
+            # for chain in chainIDs:
+            #     selection = f"segid {chain}"
+            #     self.add_method('Wolynes', method_name=f'Intrachain_{chain}', selection=selection, complementary_selection=selection, atoms='name CA', **kwargs)
+            # return
         elif method == 'Contact':
             method_description['min_seq_sep'] = 10 if min_seq_sep is None else min_seq_sep
             if 'sigma' not in kwargs:
