@@ -1,10 +1,8 @@
-.. qvalue documentation master file, created by
-   sphinx-quickstart on Thu Mar 15 13:55:56 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Contact Q-value Analysis for Biomolecular Simulations
+=======================================================================
 
-Welcome to Qvalue's documentation!
-=========================================================
+**qvalue** is a flexible Python package for calculating Q-values (the fraction of native contacts preserved during molecular dynamics simulations). It supports multiple Q-value definitions (Wolynes, Onuchic, interface, and more), custom definitions, and integrations with MDAnalysis for trajectory and atom selection handling.
+
 
 .. toctree::
    :maxdepth: 2
@@ -13,8 +11,6 @@ Welcome to Qvalue's documentation!
    getting_started
    api
    dev
-
-
 
 Indices and tables
 ==================
