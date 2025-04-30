@@ -202,7 +202,7 @@ Future Directions
   - **API Reference**: Document the ``qValue`` class and helper functions.
 
 - **Integration with other tools**:
-  - **OpenAWSEM / AWSEMtools**: Integrate Q-value analysis with OpenAWSEM for easy calculations.
+  - **OpenAWSEM / AWSEMtools**: Integrate Q-value analysis with OpenAWSEM for easy calculations. There is a working version of this here: https://github.com/dingedrice/Contacts.
 
 ----
 
