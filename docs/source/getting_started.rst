@@ -60,7 +60,7 @@ The total Q-value is the average over all native contacts:
 
 where :math:`N` is the number of CB atoms in the system.
 
-### Example: Q-value Calculation for a Trajectory
+Example: Q-value Calculation for a Trajectory
 ---------------------------------------------
 
 .. code-block:: python
