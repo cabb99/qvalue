@@ -375,7 +375,9 @@ class qValue(AnalysisBase):
                 method_description['kwargs']['a'] = 2
             method_description['function'] = qvalue_pair_wolynes
         elif method in ['rij', 'Rij', 'get_rij']:
-            method_description['store_per_contact'] = True
+            if not method_description['store_per_contact']:
+                print(f'it does not make sense to use get_rij with store_per_contact switched off; setting it to True')
+                method_description['store_per_contact'] = True
         elif callable(method):
             pass
         else:
