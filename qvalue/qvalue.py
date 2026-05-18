@@ -374,7 +374,8 @@ class qValue(AnalysisBase):
             if 'sigma' not in kwargs:
                 method_description['kwargs']['a'] = 2
             method_description['function'] = qvalue_pair_wolynes
-
+        elif method in ['rij', 'Rij', 'get_rij']:
+            method_description['store_per_contact'] = True
         elif callable(method):
             pass
         else:
@@ -604,3 +605,18 @@ def qvalue_pair_interface_CB(rij, rijn, seq_sep, N=None, sigma_exp=0.15):
     # Use the old script’s “(1 + (N//2))**sigma_exp” for *all* pairs
     fixed_sigma = (1 + (N//2))**sigma_exp
     return np.exp(-(rij - rijn)**2/(2.0 * fixed_sigma**2))
+
+def get_rij(rij, rijn, seq_sep, N=None, sigma_Exp=0.15):
+    # This method gives the user direct access to the
+    # pairwise distances needed for a particular type of q value calculation.
+    # Getting these intermediate values instead of the pairwise q values is useful 
+    # if you want to compute q values for all conformers with respect to all other conformers:
+    # it is more efficient to get all the pairwise distances into an array
+    # and loop over pairs of rows (i,j) in the array
+    # than it is to construct a new reference Universe for every conformer.
+    #
+    # Also note that the rij of this method is exactly the rij of 
+    # the qvalue_pair_* methods in this module, so that, in the scenario described above,
+    # a qvalue_pair_* method could be called from the loop over row pairs (i,j) 
+    # to lower the risk of errors in that "manual" q calculation
+    return rij
