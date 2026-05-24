@@ -38,7 +38,7 @@ Usage Example
     q_onuchic = q_calc.results['Onuchic']['q_values']
 """
 
-
+import MDAnalysis as mda
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.lib.distances import distance_array
 import numpy as np
@@ -126,7 +126,7 @@ class qValue(AnalysisBase):
 
         # If the reference group is not provided, use the first frame of the trajectory
         if reference_universe is None:
-            self.reference_universe = universe
+            self.reference_universe = mda.Merge(universe.atoms) # copies the first frame of universe to a new mda.Universe
         else:
             self.reference_universe = reference_universe
 
