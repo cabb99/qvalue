@@ -146,6 +146,14 @@ class TestQValue(object):
         #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
         assert np.allclose(qw, q_value_array, atol=0.005)
 
+    def test_qvalue_without_kwargs(self, universe, reference_universe, q_value_array):
+        #Verified agains openawsem q values
+        qvalues = qvalue.qValue(universe)
+        qvalues.run()
+        qw = qvalues.results['Wolynes']['q_values']
+        #self.print_sorted_differences(qvalues.qvalues, q_value_array, 0.1)
+        assert np.allclose(qw, q_value_array, atol=0.005)
+
     def test_qvalue_wolynes(self, lammps_universe, reference_universe,q_wolynes_array):
         qvalues = qvalue.qValue(lammps_universe, reference_universe)
         qvalues.run()
