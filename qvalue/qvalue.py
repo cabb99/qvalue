@@ -282,7 +282,13 @@ class qValue(AnalysisBase):
         store_per_contact : bool, optional
             Whether to store Q-values per contact. Default is False.
         alternative_reference : MDAnalysis.core.universe.Universe, optional
-            An alternative reference structure/universe. If not provided, the reference universe is used.
+            Configuration used to define the reference distances. 
+            Before calling this method, alternative_reference should be set
+            to the desired frame by indexing the trajectory. For example:
+                q_calc = Qvalue(u)
+                ref.trajectory[10] 
+                q_calc.add_method(method, alternative_reference=ref)
+            If None, this argument will be set to self.reference_universe.
         **kwargs : dict
         """
         
@@ -615,10 +621,15 @@ def get_rij(rij, rijn, seq_sep, N=None, sigma_Exp=0.15):
     # if you want to compute q values for all conformers with respect to all other conformers:
     # it is more efficient to get all the pairwise distances into an array
     # and loop over pairs of rows (i,j) in the array
-    # than it is to construct a new reference Universe for every conformer.
+    # than it is to modify Python objects for all ((N^2-N)/2)-1 reference conformers.
+    # (You would need to reinitialize qValue with a different reference_universe
+    #  or add and remove methods of the qValue instance with an alternative_reference,
+    #  unless it is feasible to call qValue.add_method() ((N^2-N)/2)-1 times and qValue.run()
+    #  only once; but even then, you would be doing about 2x the necessary amount of work
+    #  because most pairwise q values would end up being calculated twice)
     #
     # Also note that the rij of this method is exactly the rij of 
-    # the qvalue_pair_* methods in this module, so that, in the scenario described above,
-    # a qvalue_pair_* method could be called from the loop over row pairs (i,j) 
+    # the qvalue_pair_* methods in this module, so that
+    # a qvalue_pair_* method could be called from a loop over row pairs (i,j) 
     # to lower the risk of errors in that "manual" q calculation
     return rij
