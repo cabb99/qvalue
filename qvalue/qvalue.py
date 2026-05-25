@@ -124,9 +124,11 @@ class qValue(AnalysisBase):
         else:
             self._get_box = lambda ts: None
 
-        # If the reference group is not provided, use the first frame of the trajectory
+        # If the reference group is not provided, use the current frame of the trajectory
         if reference_universe is None:
-            self.reference_universe = mda.Merge(universe.atoms) # copies the first frame of universe to a new mda.Universe
+            print('reference_universe was None, meaning reference distances have not been specified'
+                  f'will current frame of universe {universe} as reference')
+            self.reference_universe = mda.Merge(universe.atoms) # copies the current frame of universe to a new mda.Universe
         else:
             self.reference_universe = reference_universe
 
