@@ -143,7 +143,7 @@ class qValue(AnalysisBase):
         
         self.methods=[]
         #If the method is an iterable add each method, else add the single method
-        if hasattr(method, '__iter__'):
+        if hasattr(method, '__iter__') and not type(method)==str:
             for method in method:
                 self.add_method(method)
         else:
@@ -384,7 +384,6 @@ class qValue(AnalysisBase):
             if not method_description['store_per_contact']:
                 print(f'it does not make sense to use get_rij with store_per_contact switched off; setting it to True')
                 method_description['store_per_contact'] = True
-            method_description['function'] = get_rij
         elif callable(method):
             pass
         else:
