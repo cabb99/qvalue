@@ -140,8 +140,6 @@ class qValue(AnalysisBase):
         # Check that the selections are the same length
         self.assert_same_length(self.reference_selection_CA, self.selection_CA, "CA selection length mismatch between reference and trajectory")
         self.assert_same_length(self.reference_selection_CB, self.selection_CB, "CB selection length mismatch between reference and trajectory")
-
-        self.nframes = len(self.universe.trajectory)
         
         self.methods=[]
         #If the method is an iterable add each method, else add the single method
@@ -484,7 +482,7 @@ class qValue(AnalysisBase):
         for method in self.methods:
             self.all_ti.append(method['ti'])
             self.all_tj.append(method['tj'])
-            result_template = {'q_values':np.empty(self.nframes)}
+            result_template = {'q_values':np.empty(self.n_frames)}
             if method['store_per_contact']:
                 result_template['q_per_contact'] = np.empty((self.n_frames, method['n_pairs']))
             if method['store_per_residue']:
