@@ -384,6 +384,7 @@ class qValue(AnalysisBase):
             if not method_description['store_per_contact']:
                 print(f'it does not make sense to use get_rij with store_per_contact switched off; setting it to True')
                 method_description['store_per_contact'] = True
+            method_description['function'] = get_rij
         elif callable(method):
             pass
         else:
