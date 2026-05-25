@@ -144,10 +144,15 @@ class qValue(AnalysisBase):
         self.methods=[]
         #If the method is an iterable add each method, else add the single method
         if hasattr(method, '__iter__') and not type(method)==str:
-            for method in method:
+            if type(method)==str:
                 self.add_method(method)
+            else:
+                for method in method:
+                    self.add_method(method)
+        elif not method:
+            pass
         else:
-            self.add_method(method)
+            raise ValueError(f"method argument must be an iterable or evaluate to False, but was {method} (a {type(method)})")    
 
         
     def select_CA(self, universe, custom_CA_selection=None):
@@ -475,6 +480,9 @@ class qValue(AnalysisBase):
         self.methods.append(method_description)
 
     def _prepare(self):
+        if self.methods == []:
+            raise ValueError("There are no Q calculations to perform!\n"
+                             "You must specify at least one kind of Q calculation during initialization or by calling self.add_method")
         #Define the selections for each method
         self.all_ti = []
         self.all_tj = []
