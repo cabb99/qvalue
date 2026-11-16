@@ -507,8 +507,14 @@ class qValue(AnalysisBase):
 
         #Reindex ti
         for method in self.methods:
-            method['ti_reindex'] = [self.all_ti.tolist().index(x) for x in method['ti']]
-            method['tj_reindex'] = [self.all_tj.tolist().index(x) for x in method['tj']]
+            # find the locations of the atom indices that we need
+            # for this particular q calculation method within our big distance matrix,
+            # which contains all pairwise distances needed for
+            # **any** of the q calculation methods specified in self.methods
+            method['ti_reindex'] = np.searchsorted(self.all_ti, method['ti'])
+            method['tj_reindex'] = np.searchsorted(self.all_tj, method['tj'])
+            #method['ti_reindex'] = [self.all_ti.tolist().index(x) for x in method['ti']]
+            #method['tj_reindex'] = [self.all_tj.tolist().index(x) for x in method['tj']]
         
     def _single_frame(self):
         # distances in the current frame
